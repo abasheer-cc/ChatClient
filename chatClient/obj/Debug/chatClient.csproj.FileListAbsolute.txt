@@ -1,0 +1,9 @@
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\bin\Debug\chatClient.exe.config
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\bin\Debug\chatClient.exe
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\bin\Debug\chatClient.pdb
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.csprojResolveAssemblyReference.cache
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.chatClientForm.resources
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.Properties.Resources.resources
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.csproj.GenerateResource.Cache
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.exe
+c:\users\bash_2\documents\visual studio 2013\Projects\chatClient\chatClient\obj\Debug\chatClient.pdb
