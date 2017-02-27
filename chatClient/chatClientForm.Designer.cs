@@ -59,6 +59,7 @@ namespace chatClient
             // sendText
             // 
             this.sendText.Location = new System.Drawing.Point(54, 462);
+            this.sendText.MaxLength = 900;
             this.sendText.Name = "sendText";
             this.sendText.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.sendText.Size = new System.Drawing.Size(446, 20);
@@ -98,6 +99,7 @@ namespace chatClient
             // nameBox
             // 
             this.nameBox.Location = new System.Drawing.Point(133, 34);
+            this.nameBox.MaxLength = 32;
             this.nameBox.Name = "nameBox";
             this.nameBox.Size = new System.Drawing.Size(169, 20);
             this.nameBox.TabIndex = 5;
@@ -105,6 +107,7 @@ namespace chatClient
             // serverIPBox
             // 
             this.serverIPBox.Location = new System.Drawing.Point(133, 73);
+            this.serverIPBox.MaxLength = 15;
             this.serverIPBox.Name = "serverIPBox";
             this.serverIPBox.Size = new System.Drawing.Size(169, 20);
             this.serverIPBox.TabIndex = 6;
