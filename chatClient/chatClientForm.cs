@@ -19,6 +19,8 @@ using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
+using System.IO;
+using System.Security.Cryptography;
 
 namespace chatClient
 {
@@ -29,6 +31,8 @@ namespace chatClient
         delegate void StringParameterDelegate(string value);
         private string name;
         private string serverIP;
+        private const int kKeyLength = 32;
+        private const int kIvLength = 16;
         
         public chatClientForm()
         {
@@ -157,8 +161,43 @@ namespace chatClient
                         // Receive the response from the remote device.
                         int bytesRec = senderSocket.Receive(bytes);
                         recMsg = "";
-                        recMsg = string.Format("{0}", Encoding.ASCII.GetString(bytes, 0, bytesRec - 5));
-                        PrintRecMsg(recMsg);
+                        recMsg = string.Format("{0}", Encoding.ASCII.GetString(bytes, 0, bytesRec));
+
+                        //if read string as is and don't find <EOF> that means encrypted
+                        if (recMsg.IndexOf("<EOF>") <= -1) //encrypted
+                        {
+                            PrintRecMsg(recMsg); //print encrypted msg
+
+                            //determine actual filledBytesRec
+                            int i = bytes.Length - 1;
+                            while (bytes[i] == 0)
+                            {
+                                --i;
+                            }
+                            // now bytes[i] is at the last non-zero byte
+                            int filledBytesRec = i + 1;
+
+                            //make byte array of size of filled bytes received then copy into it the filled bytes of the 1024
+                            byte[] filledBytes = new byte[filledBytesRec];
+                            Array.Copy(bytes, 0, filledBytes, 0, filledBytesRec);
+
+                            //make byte arrays for key, iv, and encrypted message
+                            byte[] key = new byte[kKeyLength];
+                            byte[] iv = new byte[kIvLength];
+                            byte[] encryptedMsg = new byte[filledBytes.Length - kKeyLength - kIvLength];
+
+                            //bytes received contains key in first kKeyLength bytes, then iv in next kIvLength, then rest is the encryped message
+                            //copy respective portions into their byte arrays
+                            Array.Copy(filledBytes, 0, key, 0, kKeyLength);
+                            Array.Copy(filledBytes, kKeyLength, iv, 0, kIvLength);
+                            Array.Copy(filledBytes, kKeyLength + kIvLength, encryptedMsg, 0, filledBytes.Length - kKeyLength - kIvLength);
+
+                            //Decrypt the encryptedMsg bytes to a string.
+                            recMsg = DecryptStringFromBytes_Aes(encryptedMsg, key, iv);                            
+                        }
+
+                        //print string without <EOF> (5 chars long) by using substring missing last 5 chars
+                        PrintRecMsg(recMsg.Substring(0, recMsg.Length-5));
                     }
                 } while (shutdown != true);
                 
@@ -233,18 +272,35 @@ namespace chatClient
         private void sendBtnPressed()
         {
             string input;
-
+            byte[] encryptedMsgPlusAesData;
+            
             //make sure input clear before getting new input
             input = "";
             
             input = sendText.Text;
             sendText.Clear();
 
-            // Encode the data string into a byte array.
-            byte[] msg = Encoding.ASCII.GetBytes(name + ": " + input + "<EOF>");
+            // Create a new instance of the AesManaged
+            // class.  This generates a new key and initialization 
+            // vector (IV).
+            using (AesManaged myAes = new AesManaged())
+            {
+                byte[] encryptedMsg;
+                // Encrypt the string to an array of bytes.
+                encryptedMsg = EncryptStringToBytes_Aes(name + ": " + input + "<EOF>", myAes.Key, myAes.IV);
+
+                //make a new byte array that contains the key, iv, and encrypted message
+                encryptedMsgPlusAesData = new byte[kKeyLength + kIvLength + encryptedMsg.Length];
+                Array.Copy(myAes.Key, 0, encryptedMsgPlusAesData, 0, kKeyLength);
+                Array.Copy(myAes.IV, 0, encryptedMsgPlusAesData, kKeyLength, kIvLength);
+                Array.Copy(encryptedMsg, 0, encryptedMsgPlusAesData, kKeyLength+kIvLength, encryptedMsg.Length);                
+            }
+
+            //Encode the data string into a byte array.
+            //byte[] msg = Encoding.ASCII.GetBytes(name + ": " + input + "<EOF>");
 
             // Send the data through the socket.
-            int bytesSent = senderSocket.Send(msg);
+            int bytesSent = senderSocket.Send(encryptedMsgPlusAesData);
 
             if (input == "quit")
             {
@@ -252,6 +308,95 @@ namespace chatClient
                 sendBtn.Enabled = false;
                 sendText.Enabled = false;
             }
+        }
+
+        //this method encrypts a plainText string to an array of bytes using AES encryption Key and IV
+        //This method was borrowed as is from: https://msdn.microsoft.com/en-us/library/system.security.cryptography.aesmanaged.aspx
+        static byte[] EncryptStringToBytes_Aes(string plainText, byte[] Key, byte[] IV)
+        {
+            // Check arguments.
+            if (plainText == null || plainText.Length <= 0)
+                throw new ArgumentNullException("plainText");
+            if (Key == null || Key.Length <= 0)
+                throw new ArgumentNullException("Key");
+            if (IV == null || IV.Length <= 0)
+                throw new ArgumentNullException("IV");
+            byte[] encrypted;
+            // Create an AesManaged object
+            // with the specified key and IV.
+            using (AesManaged aesAlg = new AesManaged())
+            {
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                // Create a decrytor to perform the stream transform.
+                ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
+
+                // Create the streams used for encryption.
+                using (MemoryStream msEncrypt = new MemoryStream())
+                {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                        {
+
+                            //Write all data to the stream.
+                            swEncrypt.Write(plainText);
+                        }
+                        encrypted = msEncrypt.ToArray();
+                    }
+                }
+            }
+
+
+            // Return the encrypted bytes from the memory stream.
+            return encrypted;
+
+        }
+
+        //this method decrypts an encrypted array of bytes to a plainText string using AES encryption Key and IV
+        //this method was borrowed as is from: https://msdn.microsoft.com/en-us/library/system.security.cryptography.aesmanaged.aspx
+        static string DecryptStringFromBytes_Aes(byte[] cipherText, byte[] Key, byte[] IV)
+        {
+            // Check arguments.
+            if (cipherText == null || cipherText.Length <= 0)
+                throw new ArgumentNullException("cipherText");
+            if (Key == null || Key.Length <= 0)
+                throw new ArgumentNullException("Key");
+            if (IV == null || IV.Length <= 0)
+                throw new ArgumentNullException("IV");
+
+            // Declare the string used to hold
+            // the decrypted text.
+            string plaintext = null;
+
+            // Create an AesManaged object
+            // with the specified key and IV.
+            using (AesManaged aesAlg = new AesManaged())
+            {
+                aesAlg.Key = Key;
+                aesAlg.IV = IV;
+
+                // Create a decrytor to perform the stream transform.
+                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+
+                // Create the streams used for decryption.
+                using (MemoryStream msDecrypt = new MemoryStream(cipherText))
+                {
+                    using (CryptoStream csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    {
+                        using (StreamReader srDecrypt = new StreamReader(csDecrypt))
+                        {
+
+                            // Read the decrypted bytes from the decrypting stream
+                            // and place them in a string.
+                            plaintext = srDecrypt.ReadToEnd();
+                        }
+                    }
+                }
+
+            }
+            return plaintext;
         }
     }
 }
