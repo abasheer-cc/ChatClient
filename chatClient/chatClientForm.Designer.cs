@@ -44,6 +44,7 @@ namespace chatClient
             this.nameLabel = new System.Windows.Forms.Label();
             this.serverIPLabel = new System.Windows.Forms.Label();
             this.connectLabel = new System.Windows.Forms.Label();
+            this.encryptCheckBox = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // recText
@@ -82,7 +83,7 @@ namespace chatClient
             this.sendBtn.Name = "sendBtn";
             this.sendBtn.Size = new System.Drawing.Size(75, 23);
             this.sendBtn.TabIndex = 3;
-            this.sendBtn.Text = "send";
+            this.sendBtn.Text = "Send";
             this.sendBtn.UseVisualStyleBackColor = true;
             this.sendBtn.Click += new System.EventHandler(this.sendBtn_Click);
             // 
@@ -92,7 +93,7 @@ namespace chatClient
             this.connectBtn.Name = "connectBtn";
             this.connectBtn.Size = new System.Drawing.Size(75, 23);
             this.connectBtn.TabIndex = 4;
-            this.connectBtn.Text = "connect";
+            this.connectBtn.Text = "Connect";
             this.connectBtn.UseVisualStyleBackColor = true;
             this.connectBtn.Click += new System.EventHandler(this.connectBtn_Click);
             // 
@@ -139,11 +140,23 @@ namespace chatClient
             this.connectLabel.TabIndex = 9;
             this.connectLabel.Text = "Enter your name and the server IP then click connect";
             // 
+            // encryptCheckBox
+            // 
+            this.encryptCheckBox.AutoSize = true;
+            this.encryptCheckBox.Location = new System.Drawing.Point(256, 503);
+            this.encryptCheckBox.Name = "encryptCheckBox";
+            this.encryptCheckBox.Size = new System.Drawing.Size(153, 17);
+            this.encryptCheckBox.TabIndex = 10;
+            this.encryptCheckBox.Text = "Send Encrypted Messages";
+            this.encryptCheckBox.UseVisualStyleBackColor = true;
+            this.encryptCheckBox.CheckedChanged += new System.EventHandler(this.encryptCheckBox_CheckedChanged);
+            // 
             // chatClientForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(539, 535);
+            this.Controls.Add(this.encryptCheckBox);
             this.Controls.Add(this.connectLabel);
             this.Controls.Add(this.serverIPLabel);
             this.Controls.Add(this.nameLabel);
@@ -174,6 +187,7 @@ namespace chatClient
         private System.Windows.Forms.Label nameLabel;
         private System.Windows.Forms.Label serverIPLabel;
         private System.Windows.Forms.Label connectLabel;
+        private System.Windows.Forms.CheckBox encryptCheckBox;
     }
 }
 

@@ -4,7 +4,7 @@
 //Date: 11/3/2014
 //Description: This file contains the code for the form and its methods to handle events.  
 //Note: the synchronous client socket example on MSDN was used as a starting point: http://msdn.microsoft.com/en-us/library/w89fhyex%28v=vs.110%29.aspx
-
+//Feb 2017 modification: now also supports encryption using AesManaged class from System.Security.Cryptography.
 
 using System;
 using System.Collections.Generic;
@@ -33,6 +33,7 @@ namespace chatClient
         private string serverIP;
         private const int kKeyLength = 32;
         private const int kIvLength = 16;
+        private bool encryptOn = false;
         
         public chatClientForm()
         {
@@ -42,22 +43,32 @@ namespace chatClient
             sendBtn.Visible = false;
             sendTextLabel.Visible = false;
             sendText.Visible = false;
+            encryptCheckBox.Visible = false;
         }
 
 
         //Method Name: connectBtn_Click
         //Parameters: object sender, EventArgs e
         //Return: void
-        //Description: event handler for connect button being clicked.  First error checks name and server ip, and then attempts to connect to the server.
-        //  Then will display connection message, start thread that deals with client messaging, and reveal chat components on form and hide connection ones.
+        //Description: event handler for connect button being clicked. Calls Connect() method.  
         private void connectBtn_Click(object sender, EventArgs e)
         {
-            
+            Connect();
+        }
+
+        //Method Name: Connect
+        //Parameters: none
+        //Return: void
+        //Description: First error checks name and server ip, and then attempts to connect to the server.
+        //              Then will display connection message, start thread that deals with client messaging, 
+        //              and reveal chat components on form and hide connection ones.
+        private void Connect()
+        {
             try
             {
                 string checkName;
                 string checkServerIP;
-                
+
                 //get text from name and server text boxes so can error check
                 checkName = nameBox.Text;
                 checkServerIP = serverIPBox.Text;
@@ -71,7 +82,7 @@ namespace chatClient
                 else
                 {
                     MessageBox.Show("Error: must enter a name");
-                    return;    
+                    return;
                 }
                 if (match.Success)
                 {
@@ -80,7 +91,7 @@ namespace chatClient
                 else
                 {
                     MessageBox.Show("Error: invalid IP format");
-                    return;    
+                    return;
                 }
 
                 // Connect to a remote device.
@@ -96,17 +107,17 @@ namespace chatClient
                 try
                 {
                     string connectMsg;
-                    
+
                     senderSocket.Connect(remoteEP);
                     connectMsg = string.Format("Socket connected to {0}", senderSocket.RemoteEndPoint.ToString());
                     recText.Text = connectMsg;
-                    
+
                     //once connect then make new thread that runs MsgCheck
                     Thread t = new Thread(new ThreadStart(MsgCheck));
 
                     //start thread
                     t.Start();
-                    
+
                     //now that connected can reveal chat components and hide initial components used to connect
                     connectLabel.Visible = false;
                     nameLabel.Visible = false;
@@ -118,6 +129,7 @@ namespace chatClient
                     sendBtn.Visible = true;
                     sendTextLabel.Visible = true;
                     sendText.Visible = true;
+                    encryptCheckBox.Visible = true;
                 }
                 catch (ArgumentNullException ane)
                 {
@@ -137,14 +149,13 @@ namespace chatClient
             {
                 Console.WriteLine(ex.ToString());
             }
-            
         }
-
 
         //Method Name: MsgCheck
         //Parameters: none
         //Return: void
         //Description: loops to keep receiving messages and calling method to print the received messages. Once shutdown flag becomes true then closes socket.
+        //      February 2017 update: now also deals with encrypted messages.
         private void MsgCheck()
         {
             string recMsg;
@@ -263,16 +274,33 @@ namespace chatClient
             }
         }
 
+        /// <summary>
+        /// Event handler for encryptCheckBox. Sets flag according to checked state.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void encryptCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            if (encryptCheckBox.Checked)
+            {
+                encryptOn = true;
+            }
+            else
+            {
+                encryptOn = false;
+            }
+        }
+
 
         //Method Name: sendBtnPressed
         //Parameters: none
         //Return: void
         //Description: gets input from sendText text box, clears the text box, and sends the message to server. If message was quit message then sets shutdown flag
-        //  to true, and disables sendBtn and sendText text box
+        //  to true, and disables sendBtn and sendText text box.
+        //  February 2017 update: have option to encrypt sent messages so if checked then will encrypt.
         private void sendBtnPressed()
         {
             string input;
-            byte[] encryptedMsgPlusAesData;
             
             //make sure input clear before getting new input
             input = "";
@@ -280,33 +308,44 @@ namespace chatClient
             input = sendText.Text;
             sendText.Clear();
 
-            // Create a new instance of the AesManaged
-            // class.  This generates a new key and initialization 
-            // vector (IV).
-            using (AesManaged myAes = new AesManaged())
+            if (encryptOn)
             {
-                byte[] encryptedMsg;
-                // Encrypt the string to an array of bytes.
-                encryptedMsg = EncryptStringToBytes_Aes(name + ": " + input + "<EOF>", myAes.Key, myAes.IV);
+                byte[] encryptedMsgPlusAesData;
 
-                //make a new byte array that contains the key, iv, and encrypted message
-                encryptedMsgPlusAesData = new byte[kKeyLength + kIvLength + encryptedMsg.Length];
-                Array.Copy(myAes.Key, 0, encryptedMsgPlusAesData, 0, kKeyLength);
-                Array.Copy(myAes.IV, 0, encryptedMsgPlusAesData, kKeyLength, kIvLength);
-                Array.Copy(encryptedMsg, 0, encryptedMsgPlusAesData, kKeyLength+kIvLength, encryptedMsg.Length);                
+                // Create a new instance of the AesManaged
+                // class.  This generates a new key and initialization 
+                // vector (IV).
+                using (AesManaged myAes = new AesManaged())
+                {
+                    byte[] encryptedMsg;
+                    // Encrypt the string to an array of bytes.
+                    encryptedMsg = EncryptStringToBytes_Aes(name + ": " + input + "<EOF>", myAes.Key, myAes.IV);
+
+                    //make a new byte array that contains the key, iv, and encrypted message
+                    encryptedMsgPlusAesData = new byte[kKeyLength + kIvLength + encryptedMsg.Length];
+                    Array.Copy(myAes.Key, 0, encryptedMsgPlusAesData, 0, kKeyLength);
+                    Array.Copy(myAes.IV, 0, encryptedMsgPlusAesData, kKeyLength, kIvLength);
+                    Array.Copy(encryptedMsg, 0, encryptedMsgPlusAesData, kKeyLength + kIvLength, encryptedMsg.Length);
+                }
+                
+                // Send the data through the socket.
+                int bytesSent = senderSocket.Send(encryptedMsgPlusAesData);
             }
+            else
+            {
+                //Encode the data string into a byte array.
+                byte[] msg = Encoding.ASCII.GetBytes(name + ": " + input + "<EOF>");
 
-            //Encode the data string into a byte array.
-            //byte[] msg = Encoding.ASCII.GetBytes(name + ": " + input + "<EOF>");
-
-            // Send the data through the socket.
-            int bytesSent = senderSocket.Send(encryptedMsgPlusAesData);
-
+                // Send the data through the socket.
+                int bytesSent = senderSocket.Send(msg);
+            }
+            
             if (input == "quit")
             {
                 shutdown = true;
                 sendBtn.Enabled = false;
                 sendText.Enabled = false;
+                encryptCheckBox.Enabled = false;
             }
         }
 
@@ -398,5 +437,7 @@ namespace chatClient
             }
             return plaintext;
         }
+
+        
     }
 }
